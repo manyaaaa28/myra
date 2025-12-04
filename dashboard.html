@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusGuard - Pro Edition</title>
+    <!-- Fun but Clean Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+    <style>
+        :root {
+            /* Dark Gamer Theme Palette */
+            --bg-color: #0f172a;       /* Deep Space Blue */
+            --card-bg: rgba(30, 41, 59, 0.8); /* Glassy Dark */
+            --primary: #22d3ee;        /* Neon Cyan */
+            --secondary: #a855f7;      /* Neon Purple */
+            --accent-yellow: #facc15;  /* Electric Yellow */
+            --accent-red: #f43f5e;     /* Laser Red */
+            --accent-green: #4ade80;   /* Neon Green */
+            --text-main: #f8fafc;      /* White */
+            --text-muted: #94a3b8;     /* Gray */
+            --border: 2px solid rgba(255,255,255,0.1);
+            --glow: 0 0 20px rgba(34, 211, 238, 0.3);
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Cyber Grid Background Animation */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(500px) rotateX(60deg);
+            animation: gridMove 20s linear infinite;
+            z-index: -2;
+            pointer-events: none;
+        }
+        
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(40px); }
+        }
+
+        /* Floating Glows */
+        .glow-orb {
+            position: fixed;
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%);
+            z-index: -1;
+            animation: floatOrb 10s ease-in-out infinite;
+        }
+
+        @keyframes floatOrb {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(50px, -50px); }
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            z-index: 10;
+        }
+
+        h1 {
+            font-weight: 700;
+            margin: 0;
+            font-size: 3.5rem;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(34, 211, 238, 0.3);
+            letter-spacing: 2px;
+        }
+        
+        p.subtitle { 
+            font-size: 1.2rem; 
+            margin-top: 5px; 
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            width: 100%;
+            max-width: 1000px;
+            position: relative;
+        }
+
+        @media(min-width: 850px) {
+            .dashboard { grid-template-columns: 2fr 1fr; }
+        }
+
+        /* Video Card */
+        .video-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 10px;
+            position: relative;
+            border: var(--border);
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Distracted State Animation */
+        .video-card.distracted { 
+            border-color: var(--accent-red); 
+            box-shadow: 0 0 30px rgba(244, 63, 94, 0.4);
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        video {
+            width: 100%;
+            border-radius: 12px;
+            display: block;
+            transform: scaleX(-1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        canvas {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: calc(100% - 20px);
+            height: calc(100% - 20px);
+            z-index: 10;
+            transform: scaleX(-1);
+        }
+
+        /* Status Badge */
+        .status-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 20;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+            font-size: 0.9rem;
+            color: var(--primary);
+        }
+
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); box-shadow: 0 0 5px var(--text-muted); }
+        .status-dot.active { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+        .status-dot.alert { background: var(--accent-red); box-shadow: 0 0 10px var(--accent-red); }
+
+        /* Stats Panel */
+        .stats-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 20px;
+            text-align: center;
+            border: var(--border);
+            position: relative;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            border-color: var(--primary);
+            box-shadow: var(--glow);
+        }
+
+        .stat-emoji {
+            font-size: 1.5rem;
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--bg-color);
+            border-radius: 50%;
+            padding: 8px;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .stat-value { font-size: 2.5rem; font-weight: 700; color: var(--text-main); }
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
+
+        /* Buttons */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-width: 100px;
+        }
+
+        button:active { transform: scale(0.95); }
+        
+        #startBtn { 
+            background: linear-gradient(135deg, var(--accent-green), #22c55e); 
+            color: #000; 
+            box-shadow: 0 4px 15px rgba(74, 222, 128, 0.4);
+        }
+        #stopBtn { 
+            background: linear-gradient(135deg, var(--accent-red), #e11d48); 
+            color: white; 
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.4);
+        }
+        #breakBtn { 
+            background: linear-gradient(135deg, var(--accent-yellow), #eab308); 
+            color: #000; 
+            flex-basis: 100%; margin-top: 5px;
+            box-shadow: 0 4px 15px rgba(250, 204, 21, 0.4);
+        }
+        #parentBtn { 
+            background: transparent; 
+            color: var(--text-muted); 
+            border: 1px solid var(--text-muted);
+            margin-top: 20px; 
+            width: 100%; 
+            font-size: 0.8rem;
+        }
+        #parentBtn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* Parental Control Section */
+        #parentSection {
+            display: none;
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 30px;
+            background: var(--card-bg);
+            border: var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 50px;
+        }
+
+        .summary-box {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .summary-item { flex: 1; text-align: center; }
+        .summary-item h3 { margin: 0; color: var(--primary); font-size: 1.8rem; }
+        .summary-item p { margin: 0; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;}
+
+        .log-entry {
+            background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .log-entry.bad { color: var(--accent-red); font-weight: bold; background: rgba(244, 63, 94, 0.1); }
+
+        /* Modals */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 50;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-content {
+            background: #1e293b;
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 50px rgba(34, 211, 238, 0.2);
+            position: relative;
+            color: white;
+        }
+
+        /* Break Mode Overlay */
+        #breakOverlay {
+            display: none;
+            flex-direction: column;
+            background: var(--bg-color);
+            z-index: 60;
+            color: white;
+        }
+        
+        .break-timer {
+            font-size: 8rem;
+            font-weight: 800;
+            color: var(--accent-yellow);
+            text-shadow: 0 0 30px rgba(250, 204, 21, 0.5);
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* --- EPIC SPLASH SCREEN --- */
+        #splashScreen {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-color);
+            z-index: 100;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        /* HUD Rings */
+        .hud-container {
+            position: relative;
+            width: 250px;
+            height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .hud-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .ring-1 {
+            width: 100%; height: 100%;
+            border-top: 2px solid var(--secondary);
+            border-bottom: 2px solid var(--secondary);
+            animation: spin 4s linear infinite;
+        }
+        .ring-2 {
+            width: 70%; height: 70%;
+            border-left: 4px solid var(--primary);
+            border-right: 4px solid var(--primary);
+            animation: spinReverse 3s linear infinite;
+        }
+        .ring-3 {
+            width: 40%; height: 40%;
+            border: 2px dashed var(--accent-yellow);
+            animation: spin 8s linear infinite;
+        }
+
+        .shield-icon-lg {
+            font-size: 5rem;
+            animation: pulse 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px var(--primary));
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spinReverse { 0% { transform: rotate(0deg); } 100% { transform: rotate(-360deg); } }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+
+        /* Glitch Text */
+        .glitch-title {
+            font-size: 4rem;
+            font-weight: 800;
+            color: #fff;
+            position: relative;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+        
+        .loading-text {
+            font-family: 'Courier New', monospace;
+            color: var(--primary);
+            margin-top: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* Power Bar */
+        .power-bar-container {
+            width: 300px;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            margin-top: 30px;
+            overflow: hidden;
+        }
+        
+        .power-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border-radius: 10px;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        /* PIN Pad */
+        .pin-input {
+            width: 60%; padding: 15px; font-size: 2rem; text-align: center;
+            background: rgba(0,0,0,0.3); border: 2px solid var(--primary);
+            color: var(--primary); border-radius: 10px; margin: 20px 0;
+            font-family: 'Courier New', monospace; letter-spacing: 10px; outline: none;
+        }
+        .pin-input:focus { box-shadow: 0 0 20px rgba(34, 211, 238, 0.3); }
+
+        .score-circle {
+            width: 140px; height: 140px; border-radius: 50%; 
+            background: conic-gradient(var(--primary) 0%, rgba(255,255,255,0.1) 0%);
+            display: flex; align-items: center; justify-content: center;
+            margin: 20px auto; position: relative;
+            box-shadow: 0 0 30px rgba(34, 211, 238, 0.2);
+        }
+        
+        .score-inner {
+            width: 120px; height: 120px; background: #1e293b; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: 800; color: white;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Floating Glow Orbs for Ambiance -->
+    <div class="glow-orb" style="top: -50px; left: -50px;"></div>
+    <div class="glow-orb" style="bottom: -50px; right: -50px; background: radial-gradient(circle, rgba(34, 211, 238, 0.2), transparent 70%); animation-delay: 2s;"></div>
+
+    <!-- EPIC SPLASH SCREEN -->
+    <div id="splashScreen" class="modal-overlay" style="display: flex;">
+        <div class="hud-container">
+            <div class="hud-ring ring-1"></div>
+            <div class="hud-ring ring-2"></div>
+            <div class="hud-ring ring-3"></div>
+            <div class="shield-icon-lg">🛡️</div>
+        </div>
+
+        <h1 class="glitch-title">Focus<span style="color: var(--primary);">Guard</span></h1>
+        <p class="loading-text" id="loadingMsg">INITIALIZING SYSTEM...</p>
+        
+        <div class="power-bar-container">
+            <div class="power-bar-fill" id="loaderFill"></div>
+        </div>
+        
+        <p style="margin-top: 15px; color: rgba(255,255,255,0.4); font-size: 0.7rem; letter-spacing: 1px;">SYSTEM SECURE // CAMERA ACCESS REQUIRED</p>
+    </div>
+
+    <header>
+        <h1>FocusGuard</h1>
+        <p class="subtitle">AI-POWERED STUDY INTERFACE</p>
+    </header>
+
+    <div class="dashboard">
+        <!-- Camera Feed -->
+        <div class="video-card" id="videoWrapper">
+            <div class="status-overlay">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">SYSTEM STANDBY</span>
+            </div>
+            <video id="webcam" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-emoji">⏱️</div>
+                <div class="stat-value" id="timerDisplay">00:00</div>
+                <div class="stat-label">Session Duration</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-emoji">⚠️</div>
+                <div class="stat-value" id="distractionsDisplay">0</div>
+                <div class="stat-label">Anomalies Detected</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-emoji">⚡</div>
+                <div class="stat-value" style="color: var(--primary)" id="scoreDisplay">100%</div>
+                <div class="stat-label">Focus Integrity</div>
+            </div>
+            
+            <div class="controls">
+                <button id="startBtn" onclick="startSession()">▶ ENGAGE</button>
+                <button id="stopBtn" onclick="stopSession()" disabled>⏹ TERMINATE</button>
+                <button id="breakBtn" onclick="startBreak()" disabled>☕ COFFEE BREAK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parental Control Toggle -->
+    <div style="width: 100%; max-width: 1000px;">
+        <button id="parentBtn" onclick="openPinModal()">🔒 ADMIN ACCESS (PARENTS)</button>
+    </div>
+
+    <!-- Hidden Parental Section -->
+    <div id="parentSection">
+        <h2 style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-top: 0;">📋 Mission Report</h2>
+        
+        <!-- Summary Box -->
+        <div class="summary-box">
+            <div class="summary-item">
+                <h3 id="pTotalTime">00:00</h3>
+                <p>TOTAL TIME</p>
+            </div>
+            <div class="summary-item">
+                <h3 id="pEfficiency">100%</h3>
+                <p>EFFICIENCY</p>
+            </div>
+            <div class="summary-item">
+                <h3 id="pDistractions">0</h3>
+                <p>DISTRACTIONS</p>
+            </div>
+        </div>
+
+        <p style="color: var(--text-muted); display: flex; align-items: center; gap: 10px;">
+            <strong>Subject Name:</strong> 
+            <input type="text" placeholder="ENTER NAME" style="background: transparent; border: none; border-bottom: 1px dashed var(--primary); color: white; font-family: inherit; font-size: 1rem; width: 200px; outline: none; padding: 5px;">
+        </p>
+        <p style="font-weight: 600; margin-top: 20px; color: var(--primary);">EVENT LOG:</p>
+        <div id="logContainer" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;">
+            <!-- Logs go here -->
+            <div class="log-entry" style="text-align: center;">NO DATA RECORDED</div>
+        </div>
+        <button onclick="closeParentSection()" style="margin-top: 15px; background: rgba(255,255,255,0.1); color: white;">CLOSE PANEL</button>
+    </div>
+
+    <!-- PIN Modal -->
+    <div id="pinModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="font-size: 3rem; margin-bottom: 10px;">🔐</div>
+            <h2>SECURITY CHECK</h2>
+            <p style="color: var(--text-muted);">ENTER ADMIN PIN</p>
+            <input type="password" id="pinInput" class="pin-input" placeholder="****" maxlength="4">
+            <div style="display: flex; gap: 10px;">
+                <button onclick="checkPin()" style="background: var(--primary); color: #000;">UNLOCK</button>
+                <button onclick="closePinModal()" style="background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red);">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Break Mode Overlay -->
+    <div id="breakOverlay" class="modal-overlay">
+        <div style="text-align: center;">
+            <div style="font-size: 4rem;">🔋</div>
+            <h1 style="color: white; letter-spacing: 2px;">RECHARGING</h1>
+            <p style="color: var(--primary);">SYSTEM COOLDOWN IN PROGRESS</p>
+            <div class="break-timer" id="breakTimerDisplay">05:00</div>
+            <button onclick="endBreakEarly()" style="background: white; color: #000; box-shadow: 0 0 20px white;">RESUME MISSION</button>
+        </div>
+    </div>
+
+    <!-- Final Report Modal -->
+    <div id="reportModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>🎉 MISSION COMPLETE</h2>
+            <p style="color: var(--text-muted);">PERFORMANCE ANALYSIS</p>
+            <div class="score-circle" id="scoreCircle">
+                <div class="score-inner" id="finalScore">95%</div>
+            </div>
+            <p id="finalMsg" style="font-weight: 600; color: var(--primary); font-family: monospace;"></p>
+            <button onclick="location.reload()" style="background: var(--primary); color: #000; margin-top: 20px; width: 100%;">RESET SYSTEM</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Variables ---
+        let model;
+        let isRunning = false;
+        let isPaused = false;
+        let isDistracted = false;
+        let distractionCount = 0;
+        let totalSeconds = 0;
+        let distractedSeconds = 0;
+        let intervalId;
+        
+        // Zoned Out Variables
+        let personLastSeen = Date.now();
+        let zonedOutThreshold = 3000;
+        
+        // Logs
+        let activityLog = [];
+
+        // DOM Elements
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.getElementById('statusDot');
+        const videoWrapper = document.getElementById('videoWrapper');
+        const logContainer = document.getElementById('logContainer');
+        
+        // Audio for Beep
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            if (type === 'phone') {
+                oscillator.type = 'sawtooth'; // Harsh buzz
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            } else if (type === 'breakOver') {
+                // High pitch notification
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            } else if (type === 'startup') {
+                // Sci-fi power up
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(50, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.8);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 1.5);
+                return;
+            } else {
+                // Zoned out (Low hum)
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.5);
+            }
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // --- EPIC SPLASH SCREEN LOGIC ---
+        const loadingMessages = [
+            "ESTABLISHING SECURE LINK...",
+            "CALIBRATING OPTICAL SENSORS...",
+            "LOADING NEURAL NETWORKS...",
+            "ACTIVATING FOCUS SHIELDS...",
+            "SYSTEM READY."
+        ];
+        
+        let msgIndex = 0;
+        const msgInterval = setInterval(() => {
+            msgIndex = (msgIndex + 1) % loadingMessages.length;
+            document.getElementById('loadingMsg').innerText = loadingMessages[msgIndex];
+        }, 800);
+
+        // --- Initialization ---
+        async function init() {
+            const loaderFill = document.getElementById('loaderFill');
+            loaderFill.style.width = "20%";
+            
+            try {
+                model = await cocoSsd.load();
+                loaderFill.style.width = "80%";
+            } catch(e) {
+                console.log("Model loading error", e);
+            }
+            
+            // Wait a bit to show off the animation
+            setTimeout(() => {
+                loaderFill.style.width = "100%";
+                clearInterval(msgInterval);
+                document.getElementById('loadingMsg').innerText = "ACCESS GRANTED";
+                document.getElementById('loadingMsg').style.color = "#4ade80"; // Green
+                document.getElementById('loadingMsg').style.animation = "none";
+                
+                // Play startup sound
+                playSound('startup');
+
+                setTimeout(() => {
+                    document.getElementById('splashScreen').style.opacity = '0';
+                    document.getElementById('splashScreen').style.transition = 'opacity 0.8s ease';
+                    setTimeout(() => {
+                        document.getElementById('splashScreen').style.display = 'none';
+                        statusText.innerText = "READY TO ENGAGE";
+                    }, 800);
+                }, 1000);
+            }, 2000);
+        }
+
+        async function setupCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 640, height: 480 },
+                audio: false
+            });
+            video.srcObject = stream;
+            return new Promise((resolve) => {
+                video.onloadedmetadata = () => { resolve(video); };
+            });
+        }
+
+        // --- BREAK MODE LOGIC ---
+        let breakInterval;
+        let breakSeconds = 300; // 5 mins
+
+        function startBreak() {
+            if (!isRunning) return;
+            isPaused = true;
+            document.getElementById('breakOverlay').style.display = 'flex';
+            document.getElementById('breakBtn').disabled = true;
+            
+            addLog("System Paused - Recharging 🔋", false);
+            
+            breakSeconds = 300; // Reset to 5 mins
+            updateBreakTimer();
+            
+            breakInterval = setInterval(() => {
+                breakSeconds--;
+                updateBreakTimer();
+                
+                if (breakSeconds <= 0) {
+                    endBreakEarly();
+                    playSound('breakOver');
+                }
+            }, 1000);
+        }
+
+        function updateBreakTimer() {
+            const mins = Math.floor(breakSeconds / 60);
+            const s = breakSeconds % 60;
+            document.getElementById('breakTimerDisplay').innerText = 
+                `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function endBreakEarly() {
+            clearInterval(breakInterval);
+            document.getElementById('breakOverlay').style.display = 'none';
+            document.getElementById('breakBtn').disabled = false;
+            isPaused = false;
+            addLog("Break Ended - Focus Resumed", false);
+            personLastSeen = Date.now(); // Reset zoned out timer so we don't beep immediately
+        }
+
+        // --- Parental Control (Summary & Log) ---
+        function openPinModal() {
+            document.getElementById('pinInput').value = ""; 
+            document.getElementById('pinModal').style.display = 'flex';
+            document.getElementById('pinInput').focus();
+        }
+
+        function closePinModal() {
+            document.getElementById('pinModal').style.display = 'none';
+        }
+
+        // --- SMART SECURITY SYSTEM (Real Product Logic) ---
+
+function openPinModal() {
+    // 1. Check if the user has a PIN saved in their browser memory
+    const savedPin = localStorage.getItem("focusGuardPin");
+    const modalTitle = document.querySelector("#pinModal h2");
+    const pinInput = document.getElementById("pinInput");
+    const actionBtn = document.querySelector("#pinModal button"); // The Unlock button
+
+    // Reset input field
+    pinInput.value = "";
+    document.getElementById('pinModal').style.display = 'flex';
+    pinInput.focus();
+
+    if (!savedPin) {
+        // SCENARIO A: FIRST TIME USER (Setup Mode)
+        modalTitle.innerText = "SETUP NEW PIN";
+        modalTitle.style.color = "var(--accent-green)"; // Make it look friendly
+        pinInput.placeholder = "CREATE PIN";
+        actionBtn.innerText = "SAVE PIN";
+        actionBtn.setAttribute("onclick", "setupNewPin()"); // Change what the button does
+    } else {
+        // SCENARIO B: RETURNING USER (Login Mode)
+        modalTitle.innerText = "SECURITY CHECK";
+        modalTitle.style.color = "white";
+        pinInput.placeholder = "****";
+        actionBtn.innerText = "UNLOCK";
+        actionBtn.setAttribute("onclick", "checkPin()"); // Change what the button does
+    }
+}
+
+function setupNewPin() {
+    const input = document.getElementById('pinInput').value;
+    
+    // Basic validation (Must be 4 digits)
+    if (input.length === 4 && !isNaN(input)) {
+        // SAVE TO BROWSER MEMORY
+        localStorage.setItem("focusGuardPin", input);
+        alert("PIN SETUP SUCCESSFUL! PLEASE REMEMBER IT.");
+        closePinModal();
+        // Immediately open parent section so they see it works
+        openParentSection(); 
+    } else {
+        alert("ERROR: PIN MUST BE 4 DIGITS");
+    }
+}
+
+function checkPin() {
+    const input = document.getElementById('pinInput').value;
+    const savedPin = localStorage.getItem("focusGuardPin"); // Retrieve the real PIN
+
+    if (input === savedPin) {
+        // SUCCESS
+        closePinModal();
+        openParentSection();
+    } else {
+        // FAILURE
+        const pinField = document.getElementById('pinInput');
+        pinField.style.borderColor = "#f43f5e"; // Red border
+        setTimeout(() => pinField.style.borderColor = "var(--primary)", 500);
+        alert("ACCESS DENIED: INCORRECT PIN");
+    }
+}
+
+function openParentSection() {
+    updateParentSummary();
+    const parentSection = document.getElementById('parentSection');
+    parentSection.style.display = 'block';
+    parentSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closePinModal() {
+    document.getElementById('pinModal').style.display = 'none';
+}
+
+        function updateParentSummary() {
+            document.getElementById('pTotalTime').innerText = formatTime(totalSeconds);
+            document.getElementById('pEfficiency').innerText = calculateScore() + "%";
+            document.getElementById('pDistractions').innerText = distractionCount;
+        }
+
+        function closeParentSection() {
+            document.getElementById('parentSection').style.display = 'none';
+        }
+
+        function addLog(message, isBad) {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `log-entry ${isBad ? 'bad' : ''}`;
+            div.innerHTML = `<span>[${time}]</span> <span>${message}</span>`;
+            
+            if (activityLog.length === 0) logContainer.innerHTML = '';
+            activityLog.push(message);
+            logContainer.prepend(div); 
+        }
+
+        // --- Core Logic ---
+        async function startSession() {
+            if (isRunning) return;
+            
+            try {
+                await setupCamera();
+            } catch (e) {
+                alert("ERR: CAMERA ACCESS DENIED");
+                return;
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            isRunning = true;
+            isPaused = false;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('breakBtn').disabled = false;
+            
+            statusDot.className = "status-dot active";
+            statusText.innerText = "MONITORING ACTIVE";
+            statusText.style.color = "var(--accent-green)";
+            
+            addLog("Session Initialized", false);
+            
+            intervalId = setInterval(updateTimer, 1000);
+            detectFrame();
+        }
+
+        function stopSession() {
+            isRunning = false;
+            clearInterval(intervalId);
+            addLog("Session Terminated", false);
+            
+            const finalScoreVal = calculateScore();
+            document.getElementById('finalScore').innerText = finalScoreVal + "%";
+            
+            // Conic gradient for score circle
+            document.getElementById('scoreCircle').style.background = 
+                `conic-gradient(var(--primary) ${finalScoreVal}%, rgba(255,255,255,0.1) ${finalScoreVal}%)`;
+            
+            document.getElementById('finalMsg').innerText = `TIME: ${formatTime(totalSeconds)} | ANOMALIES: ${distractionCount}`;
+            document.getElementById('reportModal').style.display = 'flex';
+        }
+
+        function updateTimer() {
+            if (isPaused) return; 
+            totalSeconds++;
+            if (isDistracted) distractedSeconds++;
+            document.getElementById('timerDisplay').innerText = formatTime(totalSeconds);
+            document.getElementById('scoreDisplay').innerText = calculateScore() + "%";
+            
+            if(document.getElementById('parentSection').style.display === 'block') {
+                 updateParentSummary();
+            }
+        }
+
+        function calculateScore() {
+            if (totalSeconds === 0) return 100;
+            const score = Math.round(((totalSeconds - distractedSeconds) / totalSeconds) * 100);
+            return score < 0 ? 0 : score;
+        }
+
+        function formatTime(secs) {
+            const mins = Math.floor(secs / 60);
+            const s = secs % 60;
+            return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // --- AI Detection Loop ---
+        async function detectFrame() {
+            if (!isRunning) return;
+
+            if (isPaused) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                requestAnimationFrame(detectFrame);
+                return;
+            }
+
+            const predictions = await model.detect(video);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let phoneDetected = false;
+            let personDetected = false;
+
+            predictions.forEach(prediction => {
+                const color = prediction.class === 'person' ? '#4ade80' : '#f43f5e';
+                
+                // Draw Corners only (Tech style)
+                const [x, y, w, h] = prediction.bbox;
+                const lineLen = 20;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                
+                // Top Left
+                ctx.beginPath(); ctx.moveTo(x, y + lineLen); ctx.lineTo(x, y); ctx.lineTo(x + lineLen, y); ctx.stroke();
+                // Top Right
+                ctx.beginPath(); ctx.moveTo(x + w - lineLen, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + lineLen); ctx.stroke();
+                // Bottom Left
+                ctx.beginPath(); ctx.moveTo(x, y + h - lineLen); ctx.lineTo(x, y + h); ctx.lineTo(x + lineLen, y + h); ctx.stroke();
+                // Bottom Right
+                ctx.beginPath(); ctx.moveTo(x + w - lineLen, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - lineLen); ctx.stroke();
+                
+                ctx.fillStyle = color;
+                ctx.font = "bold 14px Courier New";
+                ctx.fillText(prediction.class.toUpperCase(), x + 5, y > 15 ? y - 5 : 15);
+
+                if (prediction.class === 'cell phone' || prediction.class === 'remote') phoneDetected = true;
+                if (prediction.class === 'person') personDetected = true;
+            });
+
+            // --- DISTRACTION LOGIC ---
+            if (phoneDetected) {
+                triggerDistraction("DETECTED: PROHIBITED DEVICE", "phone");
+                personLastSeen = Date.now();
+            } else if (!personDetected) {
+                const timeHidden = Date.now() - personLastSeen;
+                if (timeHidden > zonedOutThreshold) {
+                    triggerDistraction("ALERT: SUBJECT ABSENT", "zoneout");
+                }
+            } else {
+                personLastSeen = Date.now();
+                setFocus();
+            }
+
+            requestAnimationFrame(detectFrame);
+        }
+
+        let beepDebounce = false;
+
+        function triggerDistraction(reason, type) {
+            isDistracted = true;
+            videoWrapper.classList.add('distracted');
+            
+            statusDot.className = "status-dot alert";
+            statusText.innerText = reason;
+            statusText.style.color = "var(--accent-red)";
+
+            if (!beepDebounce) {
+                playSound(type);
+                distractionCount++;
+                document.getElementById('distractionsDisplay').innerText = distractionCount;
+                addLog(`Anomaly: ${reason}`, true);
+                
+                beepDebounce = true;
+                setTimeout(() => beepDebounce = false, 2000); 
+            }
+        }
+
+        function setFocus() {
+            isDistracted = false;
+            videoWrapper.classList.remove('distracted');
+            statusDot.className = "status-dot active";
+            statusText.innerText = "STATUS: FOCUSED";
+            statusText.style.color = "var(--accent-green)";
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

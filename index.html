@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusGuard | Security Access</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* EXACT MATCH FROM YOUR DASHBOARD */
+            --bg-color: #0f172a;       /* Deep Space Blue */
+            --card-bg: rgba(30, 41, 59, 0.8); 
+            --primary: #22d3ee;        /* Neon Cyan */
+            --secondary: #a855f7;      /* Neon Purple */
+            --accent-red: #f43f5e;     /* Laser Red */
+            --text-main: #f8fafc;
+            --border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        /* --- BACKGROUND ANIMATION (Matches Dashboard) --- */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 200%; height: 200%;
+            background-image: 
+                linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(500px) rotateX(60deg);
+            animation: gridMove 20s linear infinite;
+            z-index: -2;
+            pointer-events: none;
+        }
+        
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(40px); }
+        }
+
+        /* --- LOGIN CARD --- */
+        .login-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(15px);
+            padding: 50px;
+            border-radius: 20px;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 50px rgba(34, 211, 238, 0.15);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Scanner Line Effect */
+        .scan-line {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 5px;
+            background: var(--primary);
+            opacity: 0.5;
+            box-shadow: 0 0 15px var(--primary);
+            animation: scan 3s ease-in-out infinite;
+        }
+        @keyframes scan { 0%, 100% { top: 0%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        p { color: #94a3b8; letter-spacing: 1px; margin-bottom: 30px; font-family: 'Courier New', monospace; }
+
+        /* --- PIN INPUT --- */
+        .pin-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        input {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            color: var(--primary);
+            font-size: 2.5rem;
+            padding: 15px;
+            width: 200px;
+            text-align: center;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 10px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+        }
+
+        input::placeholder { color: rgba(255,255,255,0.1); letter-spacing: 5px; }
+
+        /* --- BUTTON --- */
+        button {
+            background: linear-gradient(135deg, var(--primary), #0ea5e9);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(34, 211, 238, 0.5);
+        }
+
+        /* --- ERROR MESSAGE --- */
+        .error-msg {
+            color: var(--accent-red);
+            font-family: 'Courier New', monospace;
+            margin-top: 15px;
+            opacity: 0;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        /* --- DECORATIVE HUD CIRCLES --- */
+        .hud-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid var(--secondary);
+            opacity: 0.2;
+            z-index: -1;
+        }
+        .ring-1 { width: 500px; height: 500px; border-style: dashed; animation: spin 20s linear infinite; }
+        .ring-2 { width: 600px; height: 600px; border: 1px solid var(--primary); animation: spinReverse 25s linear infinite; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes spinReverse { 100% { transform: rotate(-360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="hud-ring ring-1"></div>
+    <div class="hud-ring ring-2"></div>
+
+    <div class="login-card">
+        <div class="scan-line"></div>
+        
+        <div style="font-size: 4rem; margin-bottom: 10px;">🛡️</div>
+        <h1>FocusGuard</h1>
+        <p>SECURE TERMINAL ACCESS</p>
+
+        <div class="pin-container">
+            <input type="password" id="passcode" placeholder="****" maxlength="4" autofocus>
+        </div>
+
+        <button onclick="attemptLogin()">Initialize</button>
+
+        <div class="error-msg" id="error">ACCESS DENIED: INVALID KEY</div>
+    </div>
+
+    <script>
+        // SOUND EFFECTS
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            if (type === 'success') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+            } else {
+                // Error sound
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            }
+
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // LOGIN LOGIC
+        function attemptLogin() {
+            const input = document.getElementById('passcode');
+            const errorMsg = document.getElementById('error');
+            const btn = document.querySelector('button');
+
+            // --- SET YOUR PASSWORD HERE ---
+            const correctPin = "2025"; 
+
+            if (input.value === correctPin) {
+                playSound('success');
+                btn.innerHTML = "ACCESS GRANTED";
+                btn.style.background = "#4ade80"; // Green
+                errorMsg.style.opacity = '0';
+                
+                // Redirect after small delay for effect
+                setTimeout(() => {
+                    window.location.href = "dashboard.html"; 
+                }, 800);
+            } else {
+                playSound('error');
+                errorMsg.style.opacity = '1';
+                input.value = "";
+                input.style.borderColor = "#f43f5e";
+                
+                // Shake effect
+                document.querySelector('.login-card').style.transform = "translateX(5px)";
+                setTimeout(() => {
+                    document.querySelector('.login-card').style.transform = "translateX(0)";
+                    input.style.borderColor = "rgba(255,255,255,0.1)";
+                }, 100);
+            }
+        }
+
+        // Allow "Enter" key
+        document.getElementById("passcode").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                attemptLogin();
+            }
+        });
+    </script>
+
+</body>
+</html>
